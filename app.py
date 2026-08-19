@@ -5,15 +5,13 @@ import re
 
 app = Flask(__name__)
 
-# بياناتك
 TOKEN = "8644563315:AAGShENEmjbM9IeEPbGmJWJOh7RjPwGGdFw"
-VERCEL_APP_URL = "https://porjectnew-m321rfwlh-chayshd39-5241s-projects.vercel.app"
+VERCEL_APP_URL = "https://porjectnew.vercel.app"
 UQLOAD_DOMAIN = "uqload.vc"
 COMMON_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
 bot = telebot.TeleBot(TOKEN, threaded=False)
 
-# دالة فك حماية Uqload
 def get_uqload_direct_link(video_code):
     try:
         url = f"https://{UQLOAD_DOMAIN}/embed-{video_code}.html"
@@ -43,7 +41,6 @@ def get_uqload_direct_link(video_code):
     except Exception:
         return None
 
-# مسار استقبال رسائل التيليجرام (Webhook)
 @app.route('/api/webhook', methods=['POST'])
 def telegram_webhook():
     if request.headers.get('content-type') == 'application/json':
@@ -53,33 +50,55 @@ def telegram_webhook():
         return '', 200
     return 'Forbidden', 403
 
-# معالجة أوامر ورسائل البوت
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.reply_to(message, "👋 أهلاً بك! أرسل لي أي رابط من Uqload وسأقوم بتحويله فوراً إلى رابط تشغيل مباشر وثابت.")
+    bot.reply_to(message, "👋 أهلاً بك! أرسل لي أي رابط مباشر (.mp4) أو رابط Uqload وسأحوله لك لرابط ثابت.")
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     text = message.text
-    match = re.search(r'uqload\.(?:co|com|vc)/(?:embed-)?([a-zA-Z0-9]+)', text)
     
-    if match:
-        video_code = match.group(1)
+    # 1. فحص إذا كان الرابط مباشر ينتهي بـ .mp4 أو يحتوي على صيغة فيديو مباشرة
+    direct_match = re.search(r'(https?://[^\s]+\.mp4[^\s]*)', text, re.IGNORECASE)
+    # 2. فحص إذا كان رابط Uqload
+    uqload_match = re.search(r'uqload\.(?:co|com|vc)/(?:embed-)?([a-zA-Z0-9]+)', text)
+    
+    if direct_match:
+        # إذا كان رابط mp4 مباشر، نقوم بترميزه أو حفظه لنحوله لرابط ثابت عبر سيرفرنا
+        raw_url = direct_match.group(1)
+        # ننشئ مسار مشفر أو مسار يعيد التوجيه للرابط المباشر
+        # لتبسيطها، سنقوم بتمرير الرابط المباشر عبر الـ API الخاص بنا
+        import urllib.parse
+        encoded_url = urllib.parse.quote(raw_url, safe='')
+        static_link = f"{VERCEL_APP_URL}/direct?url={encoded_url}"
+        
+        reply_text = f"✅ **تم إنشاء الرابط الثابت للرابط المباشر!**\n\n🔗 الرابط:\n`{static_link}`"
+        bot.reply_to(message, reply_text, parse_mode="Markdown")
+        
+    elif uqload_match:
+        video_code = uqload_match.group(1)
         static_link = f"{VERCEL_APP_URL}/play/{video_code}"
-        reply_text = f"✅ **تم إنشاء الرابط الثابت بنجاح!**\n\n🔗 الرابط:\n`{static_link}`\n\n💡 (هذا الرابط لن يتغير ويمكنك استخدامه في موقعك أو مشغلك مباشرة)"
+        reply_text = f"✅ **تم إنشاء الرابط الثابت لـ Uqload!**\n\n🔗 الرابط:\n`{static_link}`"
         bot.reply_to(message, reply_text, parse_mode="Markdown")
     else:
-        bot.reply_to(message, "⚠️ عذراً، لم أتمكن من العثور على كود Uqload صحيح في رسالتك.")
+        bot.reply_to(message, "⚠️ عذراً، يرجى إرسال رابط مباشر ينتهي بـ .mp4 أو رابط Uqload صحيح.")
 
-# مسار تشغيل الفيديو (فك الحماية وإعادة التوجيه)
+# مسار خاص بالروابط المباشرة (يقوم بإعادة التوجيه فورا للرابط الأصلي)
+@app.route('/direct')
+def direct_proxy():
+    target_url = request.args.get('url')
+    if target_url:
+        return redirect(target_url, code=302)
+    return jsonify({"error": "No url provided"}), 400
+
 @app.route('/play/<video_code>')
 def play_video(video_code):
     direct_link = get_uqload_direct_link(video_code)
     if direct_link:
         return redirect(direct_link, code=302)
-    return jsonify({"error": "Failed to fetch direct link or video not found"}), 404
+    return jsonify({"error": "Failed to fetch direct link"}), 404
 
-# صفحة رئيسية للتأكد من عمل السيرفر
 @app.route('/')
 def index():
-    return "Server is Running on Vercel 🚀"
+    app_name = "Arab Fleex Static Link API"
+    return f"✅ {app_name} is running perfectly!"
