@@ -1,40 +1,15 @@
-import telebot
-import re
-
-# ⚠️ ضع هنا توكن البوت الجديد الخاص بإنشاء الروابط ⚠️
-TOKEN = "8644563315:AAGShENEmjbM9IeEPbGmJWJOh7RjPwGGdFw"
-bot = telebot.TeleBot(TOKEN)
-
-# ⚠️ بعد رفع تطبيق app.py على منصة Render المجانية، ضع الرابط الذي سيعطونه لك هنا ⚠️
-# مثال: https://arab-fleex-api.onrender.com
-API_URL = "https://your-app-name.onrender.com" 
-
-@bot.message_handler(commands=['start'])
-def start(message):
-    welcome_text = (
-        "مرحباً بك في بوت **الروابط الثابتة** 🔗\n\n"
-        "أرسل لي أي رابط لـ Uqload وسأحوله لك إلى رابط مباشر `.mp4` ثابت للأبد."
-    )
-    bot.reply_to(message, welcome_text, parse_mode="Markdown")
-
-@bot.message_handler(func=lambda message: "uqload" in message.text.lower())
-def make_static_link(message):
-    # استخراج الكود (ID) الخاص بالفيديو من رابط Uqload
-    match = re.search(r'uqload\.[a-z]+/(?:v/|e/|d/)?([a-zA-Z0-9]+)', message.text)
-    
-    if match:
-        video_id = match.group(1)
-        # دمج الكود مع رابط الاستضافة المجانية الخاص بك
-        static_link = f"{API_URL}/play/uqload/{video_id}"
-        
-        text = (
-            f"✅ *تم إنشاء الرابط الثابت بنجاح!*\n\n"
-            f"🔗 `{static_link}`\n\n"
-            f"💡 _هذا الرابط يعمل للأبد، عند فتحه سيقوم البوت بفك الحماية وتوجيه الزائر لملف الـ mp4 فوراً._"
-        )
-        bot.reply_to(message, text, parse_mode="Markdown")
-    else:
-        bot.reply_to(message, "⚠️ لم أتمكن من استخراج كود الفيديو. تأكد أن الرابط صحيح.")
-
-print("🤖 Link Generator Bot is running...")
-bot.polling(skip_pending=True)
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "app.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "app.py"
+    }
+  ]
+}
